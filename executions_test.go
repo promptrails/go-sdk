@@ -38,8 +38,8 @@ func TestExecutionsGet(t *testing.T) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"data": map[string]any{
 				"id": "e1", "agent_id": "a1", "status": "completed",
-				"input": map[string]any{"query": "test"},
-				"output": map[string]any{"result": "ok"},
+				"input":      map[string]any{"query": "test"},
+				"output":     map[string]any{"result": "ok"},
 				"created_at": "2025-01-01T00:00:00Z", "updated_at": "2025-01-01T00:00:00Z",
 			},
 		})

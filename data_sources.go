@@ -33,7 +33,7 @@ type UpdateDataSourceParams struct {
 
 // QueryDataSourceParams are parameters for querying a data source.
 type QueryDataSourceParams struct {
-	Query string         `json:"query"`
+	Query  string         `json:"query"`
 	Params map[string]any `json:"params,omitempty"`
 }
 
