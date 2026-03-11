@@ -291,3 +291,36 @@ type LLMModel struct {
 	Name     string `json:"name"`
 	Provider string `json:"provider"`
 }
+
+// MediaModel represents an available media model.
+type MediaModel struct {
+	ID        string         `json:"id"`
+	Name      string         `json:"name"`
+	Provider  string         `json:"provider"`
+	MediaType string         `json:"media_type"`
+	IsActive  bool           `json:"is_active"`
+	Config    map[string]any `json:"config,omitempty"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+// Asset represents a media asset.
+type Asset struct {
+	ID          string         `json:"id"`
+	WorkspaceID string         `json:"workspace_id"`
+	FileName    string         `json:"file_name"`
+	ContentType string         `json:"content_type"`
+	MediaType   string         `json:"media_type"`
+	Provider    string         `json:"provider"`
+	Size        int64          `json:"size"`
+	URL         string         `json:"url,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+}
+
+// SignedURLResponse holds a signed URL for accessing an asset.
+type SignedURLResponse struct {
+	URL       string `json:"url"`
+	ExpiresAt string `json:"expires_at,omitempty"`
+}

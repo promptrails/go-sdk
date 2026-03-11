@@ -81,6 +81,41 @@ if err != nil {
 | `client.Approvals`       | `List`, `Get`, `Decide`                                                  |
 | `client.WebhookTriggers` | `List`, `Get`, `Create`, `Update`, `Delete`                              |
 | `client.A2A`             | `GetAgentCard`, `SendMessage`, `GetTask`, `ListTasks`, `CancelTask`      |
+| `client.Media`           | `Generate`                                                               |
+| `client.MediaModels`     | `List`                                                                   |
+| `client.Assets`          | `List`, `Get`, `Delete`, `GetSignedURL`                                  |
+
+## Media Studio
+
+```go
+// List available media models
+models, err := client.MediaModels.List(ctx, &promptrails.ListMediaModelsParams{
+	Provider:  "fal",
+	MediaType: "image",
+})
+
+// Generate an image
+resp, err := client.Media.Generate(ctx, &promptrails.GenerateMediaParams{
+	Provider:  "fal",
+	MediaType: "image",
+	Model:     "fal-ai/flux/schnell",
+	Prompt:    "A sunset over mountains",
+	Config:    map[string]any{"width": 1024, "height": 768},
+})
+fmt.Println(resp.AssetURL)
+
+// List assets
+assets, err := client.Assets.List(ctx, &promptrails.ListAssetsParams{
+	MediaType: "image",
+})
+
+// Get a signed URL for an asset
+signed, err := client.Assets.GetSignedURL(ctx, "asset-id")
+fmt.Println(signed.URL)
+
+// Delete an asset
+err = client.Assets.Delete(ctx, "asset-id")
+```
 
 ## Configuration
 

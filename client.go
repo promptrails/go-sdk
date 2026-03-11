@@ -21,6 +21,9 @@ type Client struct {
 	Approvals       *ApprovalsService
 	WebhookTriggers *WebhookTriggersService
 	A2A             *A2AService
+	Media           *MediaService
+	MediaModels     *MediaModelsService
+	Assets          *AssetsService
 
 	http *httpClient
 }
@@ -47,6 +50,9 @@ func NewClient(apiKey string, opts ...Option) *Client {
 		Approvals:       &ApprovalsService{http: h},
 		WebhookTriggers: &WebhookTriggersService{http: h},
 		A2A:             &A2AService{http: h},
+		Media:           &MediaService{http: h},
+		MediaModels:     &MediaModelsService{http: h},
+		Assets:          &AssetsService{http: h},
 		http:            h,
 	}
 }
