@@ -244,6 +244,7 @@ func (h *httpClient) stream(ctx context.Context, method, path string, body any) 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("X-API-Key", h.apiKey)
+	req.Header.Set("User-Agent", "promptrails-go/"+Version)
 
 	// Use a client without the short request timeout — long-lived SSE.
 	resp, err := (&http.Client{}).Do(req)

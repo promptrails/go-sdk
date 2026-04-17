@@ -117,6 +117,7 @@ func (h *httpClient) doRequest(ctx context.Context, method, path string, params 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-API-Key", h.apiKey)
+	req.Header.Set("User-Agent", "promptrails-go/"+Version)
 
 	resp, err := h.client.Do(req)
 	if err != nil {
