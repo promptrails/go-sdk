@@ -50,3 +50,14 @@ func (s *ExecutionsService) Get(ctx context.Context, id string) (*Execution, err
 	err := s.http.get(ctx, "/api/v1/executions/"+id, nil, &result)
 	return &result, err
 }
+
+// Stream subscribes to the live SSE event stream for an execution. Useful
+// when the execution was started outside a chat (e.g. Agents.Execute) and
+// the caller wants progressive updates. Always Close() the returned stream.
+func (s *ExecutionsService) Stream(ctx context.Context, executionID string) (*ChatStream, error) {
+	body, err := s.http.stream(ctx, "GET", "/api/v1/executions/"+executionID+"/stream", nil)
+	if err != nil {
+		return nil, err
+	}
+	return newChatStream(body), nil
+}

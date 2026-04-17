@@ -76,3 +76,14 @@ func (s *ChatService) SendMessage(ctx context.Context, sessionID string, params 
 	err := s.http.post(ctx, "/api/v1/chat/sessions/"+sessionID+"/messages", params, &result)
 	return &result, err
 }
+
+// SendMessageStream posts a user message and returns a ChatStream that
+// yields the agent's execution events on the same HTTP connection. Cancel
+// by cancelling ctx, and always Close() the returned stream.
+func (s *ChatService) SendMessageStream(ctx context.Context, sessionID string, params *SendMessageParams) (*ChatStream, error) {
+	body, err := s.http.stream(ctx, "POST", "/api/v1/chat/sessions/"+sessionID+"/messages/stream", params)
+	if err != nil {
+		return nil, err
+	}
+	return newChatStream(body), nil
+}

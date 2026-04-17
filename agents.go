@@ -2,6 +2,7 @@ package promptrails
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 )
 
@@ -43,9 +44,127 @@ type ExecuteAgentParams struct {
 }
 
 // CreateVersionParams are parameters for creating an agent version.
+// Config is a typed discriminated union by agent type.
 type CreateVersionParams struct {
-	Message string         `json:"message,omitempty"`
-	Config  map[string]any `json:"config,omitempty"`
+	Version      string         `json:"version,omitempty"`
+	Message      string         `json:"message,omitempty"`
+	Config       AgentConfig    `json:"config,omitempty"`
+	InputSchema  map[string]any `json:"input_schema,omitempty"`
+	OutputSchema map[string]any `json:"output_schema,omitempty"`
+	SetCurrent   bool           `json:"set_current,omitempty"`
+}
+
+// AgentConfig is implemented by every concrete agent config type. The SDK
+// injects a "type" discriminator on marshal so the backend can route.
+type AgentConfig interface {
+	agentConfig()
+}
+
+// PromptLink pins a prompt into a chain/multi-agent step at a role.
+type PromptLink struct {
+	PromptID  string `json:"prompt_id"`
+	Role      string `json:"role"`
+	SortOrder int    `json:"sort_order"`
+}
+
+// WorkflowNode is one step in a workflow DAG.
+type WorkflowNode struct {
+	ID            string         `json:"id"`
+	PromptID      string         `json:"prompt_id,omitempty"`
+	DependsOn     []string       `json:"depends_on"`
+	NodeType      string         `json:"node_type,omitempty"`
+	MediaProvider string         `json:"media_provider,omitempty"`
+	MediaType     string         `json:"media_type,omitempty"`
+	MediaModel    string         `json:"media_model,omitempty"`
+	MediaConfig   map[string]any `json:"media_config,omitempty"`
+}
+
+// CompositeStep references another agent inside a composite agent.
+type CompositeStep struct {
+	ID           string         `json:"id"`
+	AgentID      string         `json:"agent_id"`
+	DependsOn    []string       `json:"depends_on,omitempty"`
+	InputMapping map[string]any `json:"input_mapping,omitempty"`
+}
+
+// SimpleAgentConfig is the config for a simple (single-prompt) agent.
+type SimpleAgentConfig struct {
+	PromptID               string   `json:"prompt_id"`
+	ApprovalRequired       bool     `json:"approval_required,omitempty"`
+	ApprovalCheckpointName string   `json:"approval_checkpoint_name,omitempty"`
+	MaxTokens              int      `json:"max_tokens,omitempty"`
+	Temperature            *float64 `json:"temperature,omitempty"`
+	LLMModelID             string   `json:"llm_model_id,omitempty"`
+}
+
+// ChainAgentConfig is the config for a sequential chain agent.
+type ChainAgentConfig struct {
+	PromptIDs              []PromptLink `json:"prompt_ids"`
+	ApprovalRequired       bool         `json:"approval_required,omitempty"`
+	ApprovalCheckpointName string       `json:"approval_checkpoint_name,omitempty"`
+}
+
+// MultiAgentConfig is the config for a parallel multi-agent run.
+type MultiAgentConfig struct {
+	PromptIDs []PromptLink `json:"prompt_ids"`
+}
+
+// WorkflowAgentConfig is the config for a DAG-style workflow agent.
+type WorkflowAgentConfig struct {
+	Nodes []WorkflowNode `json:"nodes"`
+}
+
+// CompositeAgentConfig is the config for an agent composed of sub-agents.
+type CompositeAgentConfig struct {
+	Steps []CompositeStep `json:"steps"`
+}
+
+func (SimpleAgentConfig) agentConfig()    {}
+func (ChainAgentConfig) agentConfig()     {}
+func (MultiAgentConfig) agentConfig()     {}
+func (WorkflowAgentConfig) agentConfig()  {}
+func (CompositeAgentConfig) agentConfig() {}
+
+// MarshalJSON injects the "type" discriminator so the backend (and other
+// SDKs) can route to the correct shape without separate API surface.
+
+func (c SimpleAgentConfig) MarshalJSON() ([]byte, error) {
+	type alias SimpleAgentConfig
+	return marshalConfigWithType("simple", alias(c))
+}
+func (c ChainAgentConfig) MarshalJSON() ([]byte, error) {
+	type alias ChainAgentConfig
+	return marshalConfigWithType("chain", alias(c))
+}
+func (c MultiAgentConfig) MarshalJSON() ([]byte, error) {
+	type alias MultiAgentConfig
+	return marshalConfigWithType("multi_agent", alias(c))
+}
+func (c WorkflowAgentConfig) MarshalJSON() ([]byte, error) {
+	type alias WorkflowAgentConfig
+	return marshalConfigWithType("workflow", alias(c))
+}
+func (c CompositeAgentConfig) MarshalJSON() ([]byte, error) {
+	type alias CompositeAgentConfig
+	return marshalConfigWithType("composite", alias(c))
+}
+
+func marshalConfigWithType(typ string, inner any) ([]byte, error) {
+	// Encode inner as a map first so the "type" key merges with the
+	// concrete fields in a single flat JSON object.
+	b, err := json.Marshal(inner)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	if m == nil {
+		m = map[string]any{}
+	}
+	m["type"] = typ
+	return json.Marshal(m)
 }
 
 // CreateGuardrailParams are parameters for creating a guardrail.
