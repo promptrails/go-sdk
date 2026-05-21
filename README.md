@@ -79,7 +79,8 @@ if err != nil {
 | `client.Scores`          | `List`, `Get`, `Create`, `Update`, `Delete`, `Aggregates`, `ListConfigs`, `GetConfig`, `CreateConfig`, `UpdateConfig`, `DeleteConfig` |
 | `client.MCPTools`        | `List`, `Get`, `Create`, `Update`, `Delete`                              |
 | `client.Approvals`       | `List`, `Get`, `Decide`                                                  |
-| `client.WebhookTriggers` | `List`, `Get`, `Create`, `Update`, `Delete`                              |
+| `client.AgentTriggers`   | `List`, `Get`, `Create` (with `Source` + `SourceConfig`), `Update`, `Delete` |
+| `client.AgentVFS`        | `List`, `Read`, `Write`, `Stat`, `Mkdir`, `Move`, `Copy`, `Delete`, `Grep`, `Glob`, `Usage` |
 | `client.A2A`             | `GetAgentCard`, `SendMessage`, `GetTask`, `ListTasks`, `CancelTask`      |
 | `client.Media`           | `Generate`                                                               |
 | `client.MediaModels`     | `List`                                                                   |

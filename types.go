@@ -227,25 +227,83 @@ type ApprovalRequest struct {
 	CreatedAt      time.Time      `json:"created_at"`
 }
 
-// WebhookTrigger represents a webhook trigger.
-type WebhookTrigger struct {
-	ID          string     `json:"id"`
-	AgentID     string     `json:"agent_id"`
-	Name        string     `json:"name"`
-	Token       string     `json:"token"`
-	TokenPrefix string     `json:"token_prefix"`
-	IsActive    bool       `json:"is_active"`
-	HasSecret   bool       `json:"has_secret"`
-	LastUsedAt  *time.Time `json:"last_used_at,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+// AgentTriggerSource identifies the inbound channel that fires the trigger.
+// One of: "generic", "slack", "telegram", "whatsapp", "teams", "schedule".
+type AgentTriggerSource string
+
+const (
+	AgentTriggerSourceGeneric  AgentTriggerSource = "generic"
+	AgentTriggerSourceSlack    AgentTriggerSource = "slack"
+	AgentTriggerSourceTelegram AgentTriggerSource = "telegram"
+	AgentTriggerSourceWhatsApp AgentTriggerSource = "whatsapp"
+	AgentTriggerSourceTeams    AgentTriggerSource = "teams"
+	AgentTriggerSourceSchedule AgentTriggerSource = "schedule"
+)
+
+// AgentTrigger represents an agent trigger from any source.
+type AgentTrigger struct {
+	ID           string                 `json:"id"`
+	WorkspaceID  string                 `json:"workspace_id"`
+	AgentID      string                 `json:"agent_id"`
+	Name         string                 `json:"name"`
+	Token        string                 `json:"token"`
+	TokenPrefix  string                 `json:"token_prefix"`
+	Source       AgentTriggerSource     `json:"source"`
+	SourceConfig map[string]interface{} `json:"source_config,omitempty"`
+	ReplyConfig  map[string]interface{} `json:"reply_config,omitempty"`
+	IsActive     bool                   `json:"is_active"`
+	HasSecret    bool                   `json:"has_secret"`
+	LastUsedAt   *time.Time             `json:"last_used_at,omitempty"`
+	CreatedAt    time.Time              `json:"created_at"`
+	UpdatedAt    time.Time              `json:"updated_at"`
 }
 
-// WebhookTriggerCreateResponse includes the secret (shown only once).
-type WebhookTriggerCreateResponse struct {
-	WebhookTrigger
+// AgentTriggerCreateResponse includes the secret (shown only once).
+type AgentTriggerCreateResponse struct {
+	AgentTrigger
 	Secret string `json:"secret,omitempty"`
 }
+
+// AgentVFSFile is a single file or directory entry in an agent's Virtual Filesystem.
+type AgentVFSFile struct {
+	ID             string                 `json:"id"`
+	WorkspaceID    string                 `json:"workspace_id"`
+	AgentID        string                 `json:"agent_id"`
+	Path           string                 `json:"path"`
+	ParentPath     string                 `json:"parent_path"`
+	Name           string                 `json:"name"`
+	IsDir          bool                   `json:"is_dir"`
+	Content        string                 `json:"content,omitempty"`
+	SizeBytes      int64                  `json:"size_bytes"`
+	MimeType       string                 `json:"mime_type,omitempty"`
+	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+	LastWriterKind string                 `json:"last_writer_kind"`
+	CreatedAt      time.Time              `json:"created_at"`
+	UpdatedAt      time.Time              `json:"updated_at"`
+}
+
+// AgentVFSGrepMatch is a single line match from a VFS grep call.
+type AgentVFSGrepMatch struct {
+	Path       string `json:"path"`
+	LineNumber int    `json:"line_number"`
+	Line       string `json:"line"`
+}
+
+// AgentVFSReadResult is the full response body of a VFS read.
+type AgentVFSReadResult struct {
+	File       AgentVFSFile `json:"file"`
+	Content    string       `json:"content"`
+	TotalLines int          `json:"total_lines"`
+	Truncated  bool         `json:"truncated"`
+}
+
+// AgentVFSWriteMode controls VFS write behavior.
+type AgentVFSWriteMode string
+
+const (
+	AgentVFSWriteOverwrite AgentVFSWriteMode = "overwrite"
+	AgentVFSWriteAppend    AgentVFSWriteMode = "append"
+)
 
 // AgentMemory represents a memory entry for an agent.
 type AgentMemory struct {

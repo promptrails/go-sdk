@@ -40,8 +40,11 @@ func TestNewClient(t *testing.T) {
 	if c.Approvals == nil {
 		t.Error("Approvals service should not be nil")
 	}
-	if c.WebhookTriggers == nil {
-		t.Error("WebhookTriggers service should not be nil")
+	if c.AgentTriggers == nil {
+		t.Error("AgentTriggers service should not be nil")
+	}
+	if c.AgentVFS == nil {
+		t.Error("AgentVFS service should not be nil")
 	}
 	if c.A2A == nil {
 		t.Error("A2A service should not be nil")

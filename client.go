@@ -8,22 +8,23 @@ package promptrails
 
 // Client is the PromptRails API client.
 type Client struct {
-	Agents          *AgentsService
-	Prompts         *PromptsService
-	Executions      *ExecutionsService
-	Credentials     *CredentialsService
-	DataSources     *DataSourcesService
-	Chat            *ChatService
-	Traces          *TracesService
-	Costs           *CostsService
-	Scores          *ScoresService
-	MCPTools        *MCPToolsService
-	Approvals       *ApprovalsService
-	WebhookTriggers *WebhookTriggersService
-	A2A             *A2AService
-	Media           *MediaService
-	MediaModels     *MediaModelsService
-	Assets          *AssetsService
+	Agents        *AgentsService
+	Prompts       *PromptsService
+	Executions    *ExecutionsService
+	Credentials   *CredentialsService
+	DataSources   *DataSourcesService
+	Chat          *ChatService
+	Traces        *TracesService
+	Costs         *CostsService
+	Scores        *ScoresService
+	MCPTools      *MCPToolsService
+	Approvals     *ApprovalsService
+	AgentTriggers *AgentTriggersService
+	AgentVFS      *AgentVFSService
+	A2A           *A2AService
+	Media         *MediaService
+	MediaModels   *MediaModelsService
+	Assets        *AssetsService
 
 	http *httpClient
 }
@@ -37,22 +38,23 @@ func NewClient(apiKey string, opts ...Option) *Client {
 	}
 	h := newHTTPClient(cfg)
 	return &Client{
-		Agents:          &AgentsService{http: h},
-		Prompts:         &PromptsService{http: h},
-		Executions:      &ExecutionsService{http: h},
-		Credentials:     &CredentialsService{http: h},
-		DataSources:     &DataSourcesService{http: h},
-		Chat:            &ChatService{http: h},
-		Traces:          &TracesService{http: h},
-		Costs:           &CostsService{http: h},
-		Scores:          &ScoresService{http: h},
-		MCPTools:        &MCPToolsService{http: h},
-		Approvals:       &ApprovalsService{http: h},
-		WebhookTriggers: &WebhookTriggersService{http: h},
-		A2A:             &A2AService{http: h},
-		Media:           &MediaService{http: h},
-		MediaModels:     &MediaModelsService{http: h},
-		Assets:          &AssetsService{http: h},
-		http:            h,
+		Agents:        &AgentsService{http: h},
+		Prompts:       &PromptsService{http: h},
+		Executions:    &ExecutionsService{http: h},
+		Credentials:   &CredentialsService{http: h},
+		DataSources:   &DataSourcesService{http: h},
+		Chat:          &ChatService{http: h},
+		Traces:        &TracesService{http: h},
+		Costs:         &CostsService{http: h},
+		Scores:        &ScoresService{http: h},
+		MCPTools:      &MCPToolsService{http: h},
+		Approvals:     &ApprovalsService{http: h},
+		AgentTriggers: &AgentTriggersService{http: h},
+		AgentVFS:      &AgentVFSService{http: h},
+		A2A:           &A2AService{http: h},
+		Media:         &MediaService{http: h},
+		MediaModels:   &MediaModelsService{http: h},
+		Assets:        &AssetsService{http: h},
+		http:          h,
 	}
 }
