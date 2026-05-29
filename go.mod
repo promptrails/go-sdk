@@ -1,3 +1,3 @@
 module github.com/promptrails/go-sdk
 
-go 1.26.0
+go 1.26.3
