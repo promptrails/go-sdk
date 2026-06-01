@@ -23,6 +23,7 @@ type Client struct {
 	AgentVFS      *AgentVFSService
 	A2A           *A2AService
 	Media         *MediaService
+	LLMModels     *LLMModelsService
 	MediaModels   *MediaModelsService
 	Assets        *AssetsService
 
@@ -53,6 +54,7 @@ func NewClient(apiKey string, opts ...Option) *Client {
 		AgentVFS:      &AgentVFSService{http: h},
 		A2A:           &A2AService{http: h},
 		Media:         &MediaService{http: h},
+		LLMModels:     &LLMModelsService{http: h},
 		MediaModels:   &MediaModelsService{http: h},
 		Assets:        &AssetsService{http: h},
 		http:          h,

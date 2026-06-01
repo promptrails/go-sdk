@@ -49,11 +49,15 @@ type ContentEvent struct {
 	Content string
 }
 
-// TokenUsage is the prompt/completion token accounting for a run.
+// TokenUsage is the prompt/completion token accounting for a run, including
+// the prompt-caching and reasoning breakdown when the provider reports it.
 type TokenUsage struct {
-	PromptTokens     int `json:"prompt_tokens,omitempty"`
-	CompletionTokens int `json:"completion_tokens,omitempty"`
-	TotalTokens      int `json:"total_tokens,omitempty"`
+	PromptTokens        int `json:"prompt_tokens,omitempty"`
+	CompletionTokens    int `json:"completion_tokens,omitempty"`
+	TotalTokens         int `json:"total_tokens,omitempty"`
+	CachedTokens        int `json:"cached_tokens,omitempty"`
+	CacheCreationTokens int `json:"cache_creation_tokens,omitempty"`
+	ReasoningTokens     int `json:"reasoning_tokens,omitempty"`
 }
 
 // DoneEvent closes the stream. Output may carry the full response when the
