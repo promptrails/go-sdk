@@ -5,6 +5,13 @@
 
 Official Go SDK for [PromptRails](https://promptrails.ai) — the AI agent orchestration platform.
 
+The SDK has two independent parts:
+
+- **API client** (`github.com/promptrails/go-sdk`) — manage agents, prompts, executions, and more.
+- **Tracing** (`github.com/promptrails/go-sdk/tracing`) — send spans to PromptRails
+  from any code, without managing your prompts/agents on the platform. Standard
+  library only.
+
 ## Installation
 
 ```bash
@@ -13,126 +20,58 @@ go get github.com/promptrails/go-sdk
 
 ## Quick Start
 
+### API client
+
 ```go
 package main
 
 import (
-	"context"
-	"fmt"
-	"log"
+    "context"
+    "fmt"
+    "log"
 
-	promptrails "github.com/promptrails/go-sdk"
+    promptrails "github.com/promptrails/go-sdk"
 )
 
 func main() {
-	client := promptrails.NewClient("pr_key_...")
-
-	ctx := context.Background()
-
-	// Execute an agent
-	result, err := client.Agents.Execute(ctx, "agent-id", &promptrails.ExecuteAgentParams{
-		Input: map[string]any{"query": "Summarise this week's sales"},
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(result.Output)
+    client := promptrails.NewClient("pr_key_...")
+    result, err := client.Agents.Execute(context.Background(), "agent-id", &promptrails.ExecuteAgentParams{
+        Input: map[string]any{"query": "Summarise this week's sales"},
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Println(result.Output)
 }
 ```
 
-## Error Handling
+See the [API client guide](docs/api-client.md) for resources, error handling,
+media studio, and configuration.
+
+### Tracing
 
 ```go
-import "errors"
+import "github.com/promptrails/go-sdk/tracing"
 
-result, err := client.Agents.Get(ctx, "missing-id")
-if err != nil {
-	var notFound *promptrails.NotFoundError
-	var rateLimit *promptrails.RateLimitError
-	var quota *promptrails.QuotaExceededError
+tracer := tracing.NewTracer("pr_...")
+defer tracer.Shutdown()
 
-	switch {
-	case errors.As(err, &notFound):
-		fmt.Println("Agent not found")
-	case errors.As(err, &rateLimit):
-		fmt.Println("Rate limited, back off and retry")
-	case errors.As(err, &quota):
-		fmt.Println("Execution limit reached")
-	default:
-		fmt.Printf("Error: %v\n", err)
-	}
-}
+_ = tracer.Span(ctx, "agent-run", tracing.KindAgent, func(ctx context.Context, root *tracing.Span) error {
+    root.SetInput(map[string]any{"q": "weather?"})
+    return tracer.Span(ctx, "llm-call", tracing.KindLLM, func(ctx context.Context, llm *tracing.Span) error {
+        llm.SetModel("gpt-4o").SetUsage(120, 30, -1)
+        return nil
+    })
+})
 ```
 
-## Available Resources
+See the [tracing guide](docs/tracing.md) for manual spans, span kinds,
+configuration, and the OpenTelemetry bridge.
 
-| Resource                 | Methods                                                                  |
-| ------------------------ | ------------------------------------------------------------------------ |
-| `client.Agents`          | `List`, `Get`, `Create`, `Update`, `Delete`, `Execute`, `ListVersions`, `CreateVersion`, `PromoteVersion`, `ListGuardrails`, `CreateGuardrail`, `ListMemories`, `CreateMemory`, `SearchMemories`, `DeleteAllMemories` |
-| `client.Prompts`         | `List`, `Get`, `Create`, `Update`, `Delete`, `ListVersions`, `CreateVersion`, `PromoteVersion`, `Run` |
-| `client.Executions`      | `List`, `Get`                                                            |
-| `client.Credentials`     | `List`, `Get`, `Create`, `Update`, `Delete`, `SetDefault`, `CheckConnection` |
-| `client.DataSources`     | `List`, `Get`, `Create`, `Update`, `Delete`, `ListVersions`, `CreateVersion`, `TestConnection`, `Query` |
-| `client.Chat`            | `ListSessions`, `GetSession`, `CreateSession`, `DeleteSession`, `ListMessages`, `SendMessage` |
-| `client.Traces`          | `List`, `GetByTraceID`                                                   |
-| `client.Costs`           | `GetSummary`, `GetAgentSummary`                                          |
-| `client.Scores`          | `List`, `Get`, `Create`, `Update`, `Delete`, `Aggregates`, `ListConfigs`, `GetConfig`, `CreateConfig`, `UpdateConfig`, `DeleteConfig` |
-| `client.MCPTools`        | `List`, `Get`, `Create`, `Update`, `Delete`                              |
-| `client.Approvals`       | `List`, `Get`, `Decide`                                                  |
-| `client.AgentTriggers`   | `List`, `Get`, `Create` (with `Source` + `SourceConfig`), `Update`, `Delete` |
-| `client.AgentVFS`        | `List`, `Read`, `Write`, `Stat`, `Mkdir`, `Move`, `Copy`, `Delete`, `Grep`, `Glob`, `Usage` |
-| `client.A2A`             | `GetAgentCard`, `SendMessage`, `GetTask`, `ListTasks`, `CancelTask`      |
-| `client.Media`           | `Generate`                                                               |
-| `client.MediaModels`     | `List`                                                                   |
-| `client.Assets`          | `List`, `Get`, `Delete`, `GetSignedURL`                                  |
+## Documentation
 
-## Media Studio
-
-```go
-// List available media models
-models, err := client.MediaModels.List(ctx, &promptrails.ListMediaModelsParams{
-	Provider:  "fal",
-	MediaType: "image",
-})
-
-// Generate an image
-resp, err := client.Media.Generate(ctx, &promptrails.GenerateMediaParams{
-	Provider:  "fal",
-	MediaType: "image",
-	Model:     "fal-ai/flux/schnell",
-	Prompt:    "A sunset over mountains",
-	Config:    map[string]any{"width": 1024, "height": 768},
-})
-fmt.Println(resp.AssetURL)
-
-// List assets
-assets, err := client.Assets.List(ctx, &promptrails.ListAssetsParams{
-	MediaType: "image",
-})
-
-// Get a signed URL for an asset
-signed, err := client.Assets.GetSignedURL(ctx, "asset-id")
-fmt.Println(signed.URL)
-
-// Delete an asset
-err = client.Assets.Delete(ctx, "asset-id")
-```
-
-## Configuration
-
-```go
-client := promptrails.NewClient("pr_key_...",
-	promptrails.WithBaseURL("http://localhost:8082"),
-	promptrails.WithTimeout(10 * time.Second),
-	promptrails.WithMaxRetries(5),
-)
-```
-
-| Option          | Default                      | Description                       |
-| --------------- | ---------------------------- | --------------------------------- |
-| `WithBaseURL`   | `https://api.promptrails.ai` | API base URL                      |
-| `WithTimeout`   | `30s`                        | Request timeout                   |
-| `WithMaxRetries`| `3`                          | Max retries on network/5xx errors |
+- [API client](docs/api-client.md) — resources, error handling, media studio, configuration
+- [Tracing](docs/tracing.md) — spans, batching, configuration, OpenTelemetry
 
 ## Contributing
 
