@@ -74,8 +74,8 @@ prompt+completion when total is `-1` and both are known.
 
 `tracing.Kind` is a string; the package exports constants for the common kinds
 (`KindAgent`, `KindLLM`, `KindTool`, `KindDatasource`, `KindChain`,
-`KindWorkflow`, `KindAgentStep`, `KindEmbedding`, `KindGuardrail`,
-`KindMemory`). Any PromptRails span kind string is accepted.
+`KindWorkflow`, `KindAgentStep`, `KindEmbedding`, `KindGuardrail`). Any
+PromptRails span kind string is accepted.
 
 ## Lifecycle & flushing
 

@@ -10,9 +10,8 @@ import (
 // AgentVFSService handles the per-agent Virtual Filesystem API.
 //
 // The VFS is a per-agent persistent file tree the agent reads and writes
-// through builtin tools. Files survive across executions and double as
-// long-term memory. Every operation is also reachable from this service
-// for tooling and the studio.
+// through builtin tools. Files survive across executions. Every operation
+// is also reachable from this service for tooling and the studio.
 type AgentVFSService struct {
 	http *httpClient
 }

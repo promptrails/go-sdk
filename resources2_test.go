@@ -55,21 +55,6 @@ func TestAgentsExtended(t *testing.T) {
 			_, err := c.Agents.CreateGuardrail(ctx, "a1", &CreateGuardrailParams{})
 			return err
 		}},
-		{"ListMemories", "/api/v1/agents/a1/memories", page, func(c *Client) error {
-			_, err := c.Agents.ListMemories(ctx, "a1", nil)
-			return err
-		}},
-		{"CreateMemory", "/api/v1/agents/a1/memories", obj, func(c *Client) error {
-			_, err := c.Agents.CreateMemory(ctx, "a1", &CreateMemoryParams{})
-			return err
-		}},
-		{"SearchMemories", "/api/v1/agents/a1/memories/search", arr, func(c *Client) error {
-			_, err := c.Agents.SearchMemories(ctx, "a1", &SearchMemoriesParams{})
-			return err
-		}},
-		{"DeleteAllMemories", "/api/v1/agents/a1/memories", none, func(c *Client) error {
-			return c.Agents.DeleteAllMemories(ctx, "a1")
-		}},
 	}
 
 	for _, tc := range cases {

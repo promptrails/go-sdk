@@ -174,18 +174,6 @@ type CreateGuardrailParams struct {
 	Config map[string]any `json:"config,omitempty"`
 }
 
-// CreateMemoryParams are parameters for creating a memory.
-type CreateMemoryParams struct {
-	Content  string         `json:"content"`
-	Metadata map[string]any `json:"metadata,omitempty"`
-}
-
-// SearchMemoriesParams are parameters for searching memories.
-type SearchMemoriesParams struct {
-	Query string `json:"query"`
-	Limit int    `json:"limit,omitempty"`
-}
-
 // List returns a paginated list of agents.
 func (s *AgentsService) List(ctx context.Context, params *ListAgentsParams) (*PaginatedResponse[Agent], error) {
 	if params == nil {
@@ -283,38 +271,4 @@ func (s *AgentsService) CreateGuardrail(ctx context.Context, id string, params *
 	var result Guardrail
 	err := s.http.post(ctx, "/api/v1/agents/"+id+"/guardrails", params, &result)
 	return &result, err
-}
-
-// ListMemories returns memories for an agent.
-func (s *AgentsService) ListMemories(ctx context.Context, id string, params *ListParams) (*PaginatedResponse[AgentMemory], error) {
-	if params == nil {
-		params = &ListParams{}
-	}
-	params.defaults()
-	qp := map[string]string{
-		"page":  fmt.Sprintf("%d", params.Page),
-		"limit": fmt.Sprintf("%d", params.Limit),
-	}
-	var result PaginatedResponse[AgentMemory]
-	err := s.http.get(ctx, "/api/v1/agents/"+id+"/memories", qp, &result)
-	return &result, err
-}
-
-// CreateMemory adds a memory entry to an agent.
-func (s *AgentsService) CreateMemory(ctx context.Context, id string, params *CreateMemoryParams) (*AgentMemory, error) {
-	var result AgentMemory
-	err := s.http.post(ctx, "/api/v1/agents/"+id+"/memories", params, &result)
-	return &result, err
-}
-
-// SearchMemories searches agent memories.
-func (s *AgentsService) SearchMemories(ctx context.Context, id string, params *SearchMemoriesParams) ([]AgentMemory, error) {
-	var result []AgentMemory
-	err := s.http.post(ctx, "/api/v1/agents/"+id+"/memories/search", params, &result)
-	return result, err
-}
-
-// DeleteAllMemories removes all memories for an agent.
-func (s *AgentsService) DeleteAllMemories(ctx context.Context, id string) error {
-	return s.http.del(ctx, "/api/v1/agents/"+id+"/memories")
 }

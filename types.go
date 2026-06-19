@@ -305,15 +305,6 @@ const (
 	AgentVFSWriteAppend    AgentVFSWriteMode = "append"
 )
 
-// AgentMemory represents a memory entry for an agent.
-type AgentMemory struct {
-	ID        string         `json:"id"`
-	AgentID   string         `json:"agent_id"`
-	Content   string         `json:"content"`
-	Metadata  map[string]any `json:"metadata,omitempty"`
-	CreatedAt time.Time      `json:"created_at"`
-}
-
 // Guardrail represents a guardrail configuration for an agent.
 type Guardrail struct {
 	ID        string         `json:"id"`

@@ -19,7 +19,6 @@ const (
 	KindAgentStep  Kind = "agent_step"
 	KindEmbedding  Kind = "embedding"
 	KindGuardrail  Kind = "guardrail"
-	KindMemory     Kind = "memory"
 )
 
 // spanPayload is the wire shape sent to POST /api/v1/traces/ingest.

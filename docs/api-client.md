@@ -56,7 +56,7 @@ if err != nil {
 
 | Resource                 | Methods                                                                  |
 | ------------------------ | ------------------------------------------------------------------------ |
-| `client.Agents`          | `List`, `Get`, `Create`, `Update`, `Delete`, `Execute`, `ListVersions`, `CreateVersion`, `PromoteVersion`, `ListGuardrails`, `CreateGuardrail`, `ListMemories`, `CreateMemory`, `SearchMemories`, `DeleteAllMemories` |
+| `client.Agents`          | `List`, `Get`, `Create`, `Update`, `Delete`, `Execute`, `ListVersions`, `CreateVersion`, `PromoteVersion`, `ListGuardrails`, `CreateGuardrail` |
 | `client.Prompts`         | `List`, `Get`, `Create`, `Update`, `Delete`, `ListVersions`, `CreateVersion`, `PromoteVersion`, `Run` |
 | `client.Executions`      | `List`, `Get`                                                            |
 | `client.Credentials`     | `List`, `Get`, `Create`, `Update`, `Delete`, `SetDefault`, `CheckConnection` |
