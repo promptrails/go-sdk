@@ -147,9 +147,18 @@ func TestCosts(t *testing.T) {
 	})
 
 	t.Run("GetAgentSummary", func(t *testing.T) {
-		srv, c := testServer(jsonHandler(t, "GET", "/api/v1/costs/agents/ag1/summary", `{"data":{"total_cost":3.0}}`))
+		srv, c := testServer(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/v1/costs/agents/ag1/summary" {
+				t.Errorf("path=%s", r.URL.Path)
+			}
+			q := r.URL.Query()
+			if q.Get("from") != "2025-01-01" || q.Get("to") != "2025-02-01" {
+				t.Errorf("date range not propagated: %v", q)
+			}
+			_, _ = io.WriteString(w, `{"data":{"total_cost":3.0}}`)
+		})
 		defer srv.Close()
-		s, err := c.Costs.GetAgentSummary(ctx, "ag1", nil)
+		s, err := c.Costs.GetAgentSummary(ctx, "ag1", &CostParams{From: "2025-01-01", To: "2025-02-01"})
 		if err != nil || s.TotalCost != 3.0 {
 			t.Fatalf("s=%+v err=%v", s, err)
 		}

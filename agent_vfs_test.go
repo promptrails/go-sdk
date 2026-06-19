@@ -41,6 +41,21 @@ func TestAgentVFS(t *testing.T) {
 		}
 	})
 
+	t.Run("Read with line range", func(t *testing.T) {
+		srv, c := testServer(func(w http.ResponseWriter, r *http.Request) {
+			q := r.URL.Query()
+			if q.Get("line_offset") != "10" || q.Get("line_limit") != "5" {
+				t.Errorf("line range params not propagated: %v", q)
+			}
+			_, _ = io.WriteString(w, `{"data":{"path":"/a.txt","content":"x"}}`)
+		})
+		defer srv.Close()
+		_, err := c.AgentVFS.Read(ctx, "ag1", "/a.txt", &ReadAgentVFSParams{LineOffset: 10, LineLimit: 5})
+		if err != nil {
+			t.Fatalf("err=%v", err)
+		}
+	})
+
 	t.Run("Stat", func(t *testing.T) {
 		srv, c := testServer(jsonHandler(t, "GET", base+"/stat", `{"data":{"path":"/a.txt"}}`))
 		defer srv.Close()
