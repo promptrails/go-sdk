@@ -95,11 +95,8 @@ func TestAgentConfigMarshalInjectsTypeTag(t *testing.T) {
 		cfg     AgentConfig
 		wantTyp string
 	}{
-		{SimpleAgentConfig{PromptID: "p1"}, "simple"},
-		{ChainAgentConfig{PromptIDs: []PromptLink{{PromptID: "p1", Role: "main", SortOrder: 0}}}, "chain"},
-		{MultiAgentConfig{PromptIDs: []PromptLink{{PromptID: "p1", Role: "a", SortOrder: 0}}}, "multi_agent"},
+		{PromptAgentConfig{PromptID: "p1"}, "agent"},
 		{WorkflowAgentConfig{Nodes: []WorkflowNode{{ID: "n1", DependsOn: []string{}}}}, "workflow"},
-		{CompositeAgentConfig{Steps: []CompositeStep{{ID: "s1", AgentID: "a1"}}}, "composite"},
 	}
 	for _, tc := range cases {
 		b, err := marshalJSONViaParams(tc.cfg)

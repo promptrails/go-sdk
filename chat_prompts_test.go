@@ -76,7 +76,7 @@ func TestPromptsExtended(t *testing.T) {
 	t.Run("CreateVersion", func(t *testing.T) {
 		srv, c := testServer(jsonHandler(t, "POST", "/api/v1/prompts/p1/versions", `{"data":{"id":"v1"}}`))
 		defer srv.Close()
-		if _, err := c.Prompts.CreateVersion(ctx, "p1", &CreateVersionParams{}); err != nil {
+		if _, err := c.Prompts.CreateVersion(ctx, "p1", &CreatePromptVersionParams{UserPrompt: "hi"}); err != nil {
 			t.Fatalf("err=%v", err)
 		}
 	})
@@ -85,18 +85,6 @@ func TestPromptsExtended(t *testing.T) {
 		defer srv.Close()
 		if err := c.Prompts.PromoteVersion(ctx, "p1", "v1"); err != nil {
 			t.Fatalf("err=%v", err)
-		}
-	})
-	t.Run("Run", func(t *testing.T) {
-		srv, c := testServer(jsonHandler(t, "POST", "/api/v1/prompts/p1/run",
-			`{"data":{"output":"hello"}}`))
-		defer srv.Close()
-		res, err := c.Prompts.Run(ctx, "p1", &RunPromptParams{})
-		if err != nil {
-			t.Fatalf("err=%v", err)
-		}
-		if res.Output != "hello" {
-			t.Errorf("run result output = %q, want hello", res.Output)
 		}
 	})
 }

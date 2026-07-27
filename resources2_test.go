@@ -55,6 +55,13 @@ func TestAgentsExtended(t *testing.T) {
 			_, err := c.Agents.CreateGuardrail(ctx, "a1", &CreateGuardrailParams{})
 			return err
 		}},
+		{"Playground", "/api/v1/agents/a1/playground", obj, func(c *Client) error {
+			_, err := c.Agents.Playground(ctx, "a1", &PlaygroundParams{
+				Input:          map[string]any{"q": "hi"},
+				PromptOverride: map[string]any{"system_prompt": "be brief"},
+			})
+			return err
+		}},
 	}
 
 	for _, tc := range cases {
@@ -229,35 +236,83 @@ func TestMCPTools(t *testing.T) {
 	})
 }
 
-// ---------- Approvals ----------
+// ---------- Executions (approval + tree lifecycle) ----------
 
-func TestApprovals(t *testing.T) {
+func TestExecutionsLifecycle(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("List", func(t *testing.T) {
-		srv, c := testServer(jsonHandler(t, "GET", "/api/v1/approvals", listEnvelope))
+	t.Run("Tree", func(t *testing.T) {
+		srv, c := testServer(jsonHandler(t, "GET", "/api/v1/executions/e1/tree",
+			`{"data":{"id":"e1","children":[{"id":"e2","parent_execution_id":"e1"}]}}`))
 		defer srv.Close()
-		if _, err := c.Approvals.List(ctx, nil); err != nil {
+		ex, err := c.Executions.Tree(ctx, "e1")
+		if err != nil || len(ex.Children) != 1 || ex.Children[0].ID != "e2" {
+			t.Fatalf("ex=%+v err=%v", ex, err)
+		}
+	})
+	t.Run("Cancel", func(t *testing.T) {
+		srv, c := testServer(jsonHandler(t, "POST", "/api/v1/executions/e1/cancel", `{"data":{"id":"e1","status":"cancel_requested"}}`))
+		defer srv.Close()
+		ex, err := c.Executions.Cancel(ctx, "e1")
+		if err != nil || ex.Status != "cancel_requested" {
+			t.Fatalf("ex=%+v err=%v", ex, err)
+		}
+	})
+	t.Run("ApprovalInbox", func(t *testing.T) {
+		srv, c := testServer(jsonHandler(t, "GET", "/api/v1/executions/approval-inbox", listEnvelope))
+		defer srv.Close()
+		if _, err := c.Executions.ApprovalInbox(ctx, nil); err != nil {
 			t.Fatalf("err=%v", err)
 		}
 	})
-	t.Run("Get", func(t *testing.T) {
-		srv, c := testServer(jsonHandler(t, "GET", "/api/v1/approvals/ap1", `{"data":{"id":"ap1"}}`))
+	t.Run("Approve", func(t *testing.T) {
+		srv, c := testServer(jsonHandler(t, "POST", "/api/v1/executions/e1/approve", `{"data":{"id":"e1","status":"running"}}`))
 		defer srv.Close()
-		if _, err := c.Approvals.Get(ctx, "ap1"); err != nil {
+		if _, err := c.Executions.Approve(ctx, "e1", &DecideParams{Reason: "ok"}); err != nil {
 			t.Fatalf("err=%v", err)
 		}
 	})
-	t.Run("Decide", func(t *testing.T) {
-		srv, c := testServer(jsonHandler(t, "POST", "/api/v1/approvals/ap1/decide", `{"data":{"id":"ap1"}}`))
+	t.Run("Deny", func(t *testing.T) {
+		srv, c := testServer(jsonHandler(t, "POST", "/api/v1/executions/e1/deny", `{"data":{"id":"e1"}}`))
 		defer srv.Close()
-		if _, err := c.Approvals.Decide(ctx, "ap1", &DecideApprovalParams{}); err != nil {
+		if _, err := c.Executions.Deny(ctx, "e1", nil); err != nil {
 			t.Fatalf("err=%v", err)
 		}
 	})
 }
 
-// ---------- LLMModels / MediaModels / Media ----------
+// ---------- Guardrails ----------
+
+func TestGuardrails(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("ListScanners", func(t *testing.T) {
+		srv, c := testServer(jsonHandler(t, "GET", "/api/v1/guardrails/scanners",
+			`{"data":[{"type":"pii","label":"PII","category":"local","enabled":true}]}`))
+		defer srv.Close()
+		scanners, err := c.Guardrails.ListScanners(ctx)
+		if err != nil || len(scanners) != 1 || scanners[0].Type != "pii" {
+			t.Fatalf("scanners=%+v err=%v", scanners, err)
+		}
+	})
+	t.Run("Update", func(t *testing.T) {
+		srv, c := testServer(jsonHandler(t, "PATCH", "/api/v1/guardrails/g1", `{"data":{"id":"g1"}}`))
+		defer srv.Close()
+		active := false
+		if _, err := c.Guardrails.Update(ctx, "g1", &UpdateGuardrailParams{IsActive: &active}); err != nil {
+			t.Fatalf("err=%v", err)
+		}
+	})
+	t.Run("Delete", func(t *testing.T) {
+		srv, c := testServer(jsonHandler(t, "DELETE", "/api/v1/guardrails/g1", ""))
+		defer srv.Close()
+		if err := c.Guardrails.Delete(ctx, "g1"); err != nil {
+			t.Fatalf("err=%v", err)
+		}
+	})
+}
+
+// ---------- LLMModels ----------
 
 func TestLLMModels(t *testing.T) {
 	ctx := context.Background()
@@ -276,20 +331,4 @@ func TestLLMModels(t *testing.T) {
 			t.Fatalf("err=%v", err)
 		}
 	})
-}
-
-func TestMediaModels(t *testing.T) {
-	srv, c := testServer(jsonHandler(t, "GET", "/api/v1/media-models", listEnvelope))
-	defer srv.Close()
-	if _, err := c.MediaModels.List(context.Background(), nil); err != nil {
-		t.Fatalf("err=%v", err)
-	}
-}
-
-func TestMediaGenerate(t *testing.T) {
-	srv, c := testServer(jsonHandler(t, "POST", "/api/v1/media/generate", `{"data":{"job_id":"j1"}}`))
-	defer srv.Close()
-	if _, err := c.Media.Generate(context.Background(), &GenerateMediaParams{}); err != nil {
-		t.Fatalf("err=%v", err)
-	}
 }

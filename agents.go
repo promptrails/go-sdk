@@ -20,12 +20,14 @@ type ListAgentsParams struct {
 	Search string
 }
 
-// CreateAgentParams are parameters for creating an agent.
+// CreateAgentParams are parameters for creating an agent. Type is one of
+// "agent" or "workflow" — API v2 has exactly two agent kinds.
 type CreateAgentParams struct {
 	Name        string         `json:"name"`
 	Type        string         `json:"type"`
 	Description string         `json:"description,omitempty"`
 	Config      map[string]any `json:"config,omitempty"`
+	TemplateID  string         `json:"template_id,omitempty"`
 }
 
 // UpdateAgentParams are parameters for updating an agent.
@@ -44,30 +46,39 @@ type ExecuteAgentParams struct {
 }
 
 // CreateVersionParams are parameters for creating an agent version.
-// Config is a typed discriminated union by agent type.
+//
+// The version owns the model + sampling (ModelConfig), the execution-tree
+// budget (RunBudget), the approval policy, cache TTL, version-scoped VFS /
+// masking overrides, and the attached Tools / SubAgents / Guardrails — all
+// siblings of Config, not part of it. Config carries only the agent-kind
+// discriminator payload (PromptAgentConfig or WorkflowAgentConfig).
 type CreateVersionParams struct {
-	Version      string         `json:"version,omitempty"`
-	Message      string         `json:"message,omitempty"`
-	Config       AgentConfig    `json:"config,omitempty"`
-	InputSchema  map[string]any `json:"input_schema,omitempty"`
-	OutputSchema map[string]any `json:"output_schema,omitempty"`
-	SetCurrent   bool           `json:"set_current,omitempty"`
+	Version        string               `json:"version,omitempty"`
+	Message        string               `json:"message,omitempty"`
+	Config         AgentConfig          `json:"config,omitempty"`
+	InputSchema    map[string]any       `json:"input_schema,omitempty"`
+	OutputSchema   map[string]any       `json:"output_schema,omitempty"`
+	SetCurrent     bool                 `json:"set_current,omitempty"`
+	ModelConfig    *ModelConfig         `json:"model_config,omitempty"`
+	RunBudget      *RunBudget           `json:"run_budget,omitempty"`
+	ApprovalPolicy *ApprovalPolicy      `json:"approval_policy,omitempty"`
+	CacheTimeout   *int                 `json:"cache_timeout,omitempty"`
+	VFSEnabled     *bool                `json:"vfs_enabled,omitempty"`
+	MaskingEnabled *bool                `json:"masking_enabled,omitempty"`
+	Tools          []ToolAttachment     `json:"tools,omitempty"`
+	SubAgents      []SubAgentAttachment `json:"sub_agents,omitempty"`
+	Guardrails     []GuardrailSpec      `json:"guardrails,omitempty"`
 }
 
-// AgentConfig is implemented by every concrete agent config type. The SDK
-// injects a "type" discriminator on marshal so the backend can route.
+// AgentConfig is implemented by every concrete agent-version config type. The
+// SDK injects a "type" discriminator on marshal so the backend can route.
+// API v2 has exactly two kinds: PromptAgentConfig ("agent") and
+// WorkflowAgentConfig ("workflow").
 type AgentConfig interface {
 	agentConfig()
 }
 
-// PromptLink pins a prompt into a chain/multi-agent step at a role.
-type PromptLink struct {
-	PromptID  string `json:"prompt_id"`
-	Role      string `json:"role"`
-	SortOrder int    `json:"sort_order"`
-}
-
-// WorkflowNode is one step in a workflow DAG.
+// WorkflowNode is one node in a "workflow" agent's DAG.
 type WorkflowNode struct {
 	ID            string         `json:"id"`
 	PromptID      string         `json:"prompt_id,omitempty"`
@@ -79,74 +90,51 @@ type WorkflowNode struct {
 	MediaConfig   map[string]any `json:"media_config,omitempty"`
 }
 
-// CompositeStep references another agent inside a composite agent.
-type CompositeStep struct {
-	ID           string         `json:"id"`
-	AgentID      string         `json:"agent_id"`
-	DependsOn    []string       `json:"depends_on,omitempty"`
-	InputMapping map[string]any `json:"input_mapping,omitempty"`
+// ToolAttachment is an MCP tool attached to an agent version with per-tool
+// policy. Pass as an element of CreateVersionParams.Tools.
+type ToolAttachment struct {
+	MCPToolID        string `json:"mcp_tool_id"`
+	RequiresApproval bool   `json:"requires_approval,omitempty"`
+	NoRetry          bool   `json:"no_retry,omitempty"`
+	SortOrder        *int   `json:"sort_order,omitempty"`
 }
 
-// SimpleAgentConfig is the config for a simple (single-prompt) agent.
-type SimpleAgentConfig struct {
-	PromptID               string   `json:"prompt_id"`
-	ApprovalRequired       bool     `json:"approval_required,omitempty"`
-	ApprovalCheckpointName string   `json:"approval_checkpoint_name,omitempty"`
-	MaxTokens              int      `json:"max_tokens,omitempty"`
-	Temperature            *float64 `json:"temperature,omitempty"`
-	LLMModelID             string   `json:"llm_model_id,omitempty"`
+// SubAgentAttachment is a delegate sub-agent attached to an agent version
+// (agents-as-tools). Pass as an element of CreateVersionParams.SubAgents.
+type SubAgentAttachment struct {
+	AgentID          string `json:"agent_id"`
+	Alias            string `json:"alias"`
+	Description      string `json:"description,omitempty"`
+	Mode             string `json:"mode,omitempty"`         // "delegate" | "handoff"
+	ContextMode      string `json:"context_mode,omitempty"` // "task" | "window"
+	RequiresApproval bool   `json:"requires_approval,omitempty"`
+	SortOrder        *int   `json:"sort_order,omitempty"`
 }
 
-// ChainAgentConfig is the config for a sequential chain agent.
-type ChainAgentConfig struct {
-	PromptIDs              []PromptLink `json:"prompt_ids"`
-	ApprovalRequired       bool         `json:"approval_required,omitempty"`
-	ApprovalCheckpointName string       `json:"approval_checkpoint_name,omitempty"`
+// PromptAgentConfig is the Config for an "agent" — a single prompt, optionally
+// extended with tools and sub-agents (a supervisor when it has sub-agents).
+type PromptAgentConfig struct {
+	PromptID string `json:"prompt_id"`
 }
 
-// MultiAgentConfig is the config for a parallel multi-agent run.
-type MultiAgentConfig struct {
-	PromptIDs []PromptLink `json:"prompt_ids"`
-}
-
-// WorkflowAgentConfig is the config for a DAG-style workflow agent.
+// WorkflowAgentConfig is the Config for a "workflow" — a deterministic DAG.
 type WorkflowAgentConfig struct {
 	Nodes []WorkflowNode `json:"nodes"`
 }
 
-// CompositeAgentConfig is the config for an agent composed of sub-agents.
-type CompositeAgentConfig struct {
-	Steps []CompositeStep `json:"steps"`
-}
-
-func (SimpleAgentConfig) agentConfig()    {}
-func (ChainAgentConfig) agentConfig()     {}
-func (MultiAgentConfig) agentConfig()     {}
-func (WorkflowAgentConfig) agentConfig()  {}
-func (CompositeAgentConfig) agentConfig() {}
+func (PromptAgentConfig) agentConfig()   {}
+func (WorkflowAgentConfig) agentConfig() {}
 
 // MarshalJSON injects the "type" discriminator so the backend (and other
 // SDKs) can route to the correct shape without separate API surface.
 
-func (c SimpleAgentConfig) MarshalJSON() ([]byte, error) {
-	type alias SimpleAgentConfig
-	return marshalConfigWithType("simple", alias(c))
-}
-func (c ChainAgentConfig) MarshalJSON() ([]byte, error) {
-	type alias ChainAgentConfig
-	return marshalConfigWithType("chain", alias(c))
-}
-func (c MultiAgentConfig) MarshalJSON() ([]byte, error) {
-	type alias MultiAgentConfig
-	return marshalConfigWithType("multi_agent", alias(c))
+func (c PromptAgentConfig) MarshalJSON() ([]byte, error) {
+	type alias PromptAgentConfig
+	return marshalConfigWithType("agent", alias(c))
 }
 func (c WorkflowAgentConfig) MarshalJSON() ([]byte, error) {
 	type alias WorkflowAgentConfig
 	return marshalConfigWithType("workflow", alias(c))
-}
-func (c CompositeAgentConfig) MarshalJSON() ([]byte, error) {
-	type alias CompositeAgentConfig
-	return marshalConfigWithType("composite", alias(c))
 }
 
 func marshalConfigWithType(typ string, inner any) ([]byte, error) {
@@ -167,11 +155,22 @@ func marshalConfigWithType(typ string, inner any) ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// CreateGuardrailParams are parameters for creating a guardrail.
+// CreateGuardrailParams are parameters for attaching a guardrail to an agent.
 type CreateGuardrailParams struct {
-	Name   string         `json:"name"`
-	Type   string         `json:"type"`
-	Config map[string]any `json:"config,omitempty"`
+	Type        string         `json:"type"`         // "input" | "output"
+	ScannerType string         `json:"scanner_type"` // e.g. "pii", "prompt_injection"
+	Action      string         `json:"action,omitempty"`
+	Config      map[string]any `json:"config,omitempty"`
+	IsActive    *bool          `json:"is_active,omitempty"`
+	SortOrder   *int           `json:"sort_order,omitempty"`
+}
+
+// PlaygroundParams are parameters for an ad-hoc agent run with a prompt
+// override, without saving a version.
+type PlaygroundParams struct {
+	Input          map[string]any `json:"input"`
+	PromptOverride map[string]any `json:"prompt_override"`
+	VersionID      string         `json:"version_id,omitempty"`
 }
 
 // List returns a paginated list of agents.
@@ -230,6 +229,16 @@ func (s *AgentsService) Execute(ctx context.Context, id string, params *ExecuteA
 	var result ExecuteResult
 	err := s.http.post(ctx, "/api/v1/agents/"+id+"/execute", params, &result)
 	return &result, err
+}
+
+// Playground runs the agent with an ad-hoc prompt override without saving a
+// version. PromptOverride may carry "system_prompt", "user_prompt" and
+// "input_schema"; VersionID selects whose runtime behavior is used (defaults
+// to the current version).
+func (s *AgentsService) Playground(ctx context.Context, id string, params *PlaygroundParams) (map[string]any, error) {
+	var result map[string]any
+	err := s.http.post(ctx, "/api/v1/agents/"+id+"/playground", params, &result)
+	return result, err
 }
 
 // ListVersions returns versions for an agent.
