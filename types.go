@@ -16,15 +16,29 @@ type Agent struct {
 	UpdatedAt        time.Time      `json:"updated_at"`
 }
 
-// AgentVersion represents a version of an agent.
+// AgentVersion represents a version of an agent. In API v2 the version owns
+// the model + runtime configuration (ModelConfig, RunBudget, ApprovalPolicy,
+// cache TTL, VFS/masking overrides) and the attached tools, sub-agents and
+// guardrails — siblings of Config.
 type AgentVersion struct {
-	ID        string         `json:"id"`
-	AgentID   string         `json:"agent_id"`
-	Version   string         `json:"version"`
-	IsActive  bool           `json:"is_active"`
-	Message   string         `json:"message"`
-	Config    map[string]any `json:"config,omitempty"`
-	CreatedAt time.Time      `json:"created_at"`
+	ID             string           `json:"id"`
+	AgentID        string           `json:"agent_id"`
+	Version        string           `json:"version"`
+	IsActive       bool             `json:"is_active"`
+	Message        string           `json:"message"`
+	Config         map[string]any   `json:"config,omitempty"`
+	InputSchema    map[string]any   `json:"input_schema,omitempty"`
+	OutputSchema   map[string]any   `json:"output_schema,omitempty"`
+	ModelConfig    *ModelConfig     `json:"model_config,omitempty"`
+	RunBudget      *RunBudget       `json:"run_budget,omitempty"`
+	ApprovalPolicy *ApprovalPolicy  `json:"approval_policy,omitempty"`
+	CacheTimeout   *int             `json:"cache_timeout,omitempty"`
+	VFSEnabled     *bool            `json:"vfs_enabled,omitempty"`
+	MaskingEnabled *bool            `json:"masking_enabled,omitempty"`
+	Tools          []map[string]any `json:"tools,omitempty"`
+	SubAgents      []map[string]any `json:"sub_agents,omitempty"`
+	Guardrails     []map[string]any `json:"guardrails,omitempty"`
+	CreatedAt      time.Time        `json:"created_at"`
 }
 
 // Prompt represents a prompt template.
@@ -42,37 +56,47 @@ type Prompt struct {
 	UpdatedAt        time.Time      `json:"updated_at"`
 }
 
-// PromptVersion represents a version of a prompt.
+// PromptVersion represents a content-only version of a prompt (API v2).
+// Model, sampling, tools, output schema and cache TTL live on the agent
+// version, not on the prompt.
 type PromptVersion struct {
-	ID        string         `json:"id"`
-	PromptID  string         `json:"prompt_id"`
-	Version   string         `json:"version"`
-	IsActive  bool           `json:"is_active"`
-	Config    map[string]any `json:"config,omitempty"`
-	CreatedAt time.Time      `json:"created_at"`
-}
-
-// RunPromptResponse holds the result of running a prompt.
-type RunPromptResponse struct {
-	Output string `json:"output"`
+	ID           string         `json:"id"`
+	PromptID     string         `json:"prompt_id"`
+	Version      string         `json:"version"`
+	SystemPrompt string         `json:"system_prompt,omitempty"`
+	UserPrompt   string         `json:"user_prompt,omitempty"`
+	InputSchema  map[string]any `json:"input_schema,omitempty"`
+	IsActive     bool           `json:"is_active"`
+	Config       map[string]any `json:"config,omitempty"`
+	CreatedAt    time.Time      `json:"created_at"`
 }
 
 // Execution represents an agent execution record.
+//
+// API v2 executions form a tree: a sub-agent delegation, handoff continuation
+// or workflow agent-node run has ParentExecutionID set and appears in its
+// parent's Children. Root executions have an empty ParentExecutionID. Status
+// gains "waiting_approval" (parked at an approval-gated tool call) and
+// "cancel_requested" (cooperative cancel observed before finalizing).
 type Execution struct {
-	ID          string         `json:"id"`
-	AgentID     string         `json:"agent_id"`
-	AgentName   string         `json:"agent_name"`
-	WorkspaceID string         `json:"workspace_id"`
-	Status      string         `json:"status"`
-	Input       map[string]any `json:"input,omitempty"`
-	Output      map[string]any `json:"output,omitempty"`
-	Error       *string        `json:"error,omitempty"`
-	TraceID     *string        `json:"trace_id,omitempty"`
-	DurationMs  int            `json:"duration_ms"`
-	TotalTokens int            `json:"total_tokens"`
-	Cost        float64        `json:"cost"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	ID                string         `json:"id"`
+	AgentID           string         `json:"agent_id"`
+	AgentName         string         `json:"agent_name"`
+	WorkspaceID       string         `json:"workspace_id"`
+	SessionID         string         `json:"session_id,omitempty"`
+	ParentExecutionID *string        `json:"parent_execution_id,omitempty"`
+	Status            string         `json:"status"`
+	Input             map[string]any `json:"input,omitempty"`
+	Output            map[string]any `json:"output,omitempty"`
+	Error             *string        `json:"error,omitempty"`
+	TraceID           *string        `json:"trace_id,omitempty"`
+	DurationMs        int            `json:"duration_ms"`
+	TotalTokens       int            `json:"total_tokens"`
+	Cost              float64        `json:"cost"`
+	ApprovalExpiresAt *time.Time     `json:"approval_expires_at,omitempty"`
+	Children          []Execution    `json:"children,omitempty"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
 }
 
 // ExecuteResult is the response from executing an agent.
@@ -141,63 +165,112 @@ type ChatMessage struct {
 	CreatedAt time.Time      `json:"created_at"`
 }
 
-// Trace represents an execution trace.
+// Trace represents an observability span (API v2). TokenUsage carries raw
+// provider counts and, when reported, extends beyond prompt/completion/total
+// with "cached_tokens" (prompt-cache read hits), "cache_creation_tokens" and
+// "reasoning_tokens".
 type Trace struct {
-	ID          string    `json:"id"`
-	TraceID     string    `json:"trace_id"`
-	ExecutionID string    `json:"execution_id"`
-	WorkspaceID string    `json:"workspace_id"`
-	Kind        string    `json:"kind"`
-	Name        string    `json:"name"`
-	Input       any       `json:"input,omitempty"`
-	Output      any       `json:"output,omitempty"`
-	DurationMs  int       `json:"duration_ms"`
-	ParentID    *string   `json:"parent_id,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID                  string         `json:"id"`
+	TraceID             string         `json:"trace_id"`
+	ExecutionID         *string        `json:"execution_id,omitempty"`
+	WorkspaceID         string         `json:"workspace_id"`
+	ParentID            *string        `json:"parent_id,omitempty"`
+	Name                string         `json:"name"`
+	Kind                string         `json:"kind"`
+	Status              string         `json:"status"`
+	Level               string         `json:"level,omitempty"`
+	Input               any            `json:"input,omitempty"`
+	Output              any            `json:"output,omitempty"`
+	Attributes          map[string]any `json:"attributes,omitempty"`
+	Tags                []string       `json:"tags,omitempty"`
+	TokenUsage          map[string]any `json:"token_usage,omitempty"`
+	Cost                *float64       `json:"cost,omitempty"`
+	DurationMs          int            `json:"duration_ms"`
+	CompletionStartTime *string        `json:"completion_start_time,omitempty"`
+	ErrorMessage        string         `json:"error_message,omitempty"`
+	ErrorType           string         `json:"error_type,omitempty"`
+	PromptTokens        *int           `json:"prompt_tokens,omitempty"`
+	CompletionTokens    *int           `json:"completion_tokens,omitempty"`
+	TotalTokens         *int           `json:"total_tokens,omitempty"`
+	ModelName           string         `json:"model_name,omitempty"`
+	AgentID             *string        `json:"agent_id,omitempty"`
+	AgentName           string         `json:"agent_name,omitempty"`
+	AgentType           string         `json:"agent_type,omitempty"`
+	UserID              *string        `json:"user_id,omitempty"`
+	SessionID           string         `json:"session_id,omitempty"`
+	DataSourceID        *string        `json:"data_source_id,omitempty"`
+	DataSourceName      string         `json:"data_source_name,omitempty"`
+	PromptName          string         `json:"prompt_name,omitempty"`
+	MCPToolName         string         `json:"mcp_tool_name,omitempty"`
+	MCPToolType         string         `json:"mcp_tool_type,omitempty"`
+	ServiceName         string         `json:"service_name,omitempty"`
+	StartedAt           string         `json:"started_at,omitempty"`
+	EndedAt             *string        `json:"ended_at,omitempty"`
+	CreatedAt           time.Time      `json:"created_at"`
 }
 
-// CostSummary represents cost summary data.
-type CostSummary struct {
-	TotalCost       float64 `json:"total_cost"`
-	TotalTokens     int     `json:"total_tokens"`
-	TotalExecutions int     `json:"total_executions"`
-	ByModel         any     `json:"by_model,omitempty"`
-	ByDay           any     `json:"by_day,omitempty"`
+// TraceSummary holds aggregate statistics over a filtered set of traces
+// (GET /traces/summary).
+type TraceSummary struct {
+	TotalTraces    int     `json:"total_traces"`
+	TotalTokens    int     `json:"total_tokens"`
+	TotalCost      float64 `json:"total_cost"`
+	AvgDurationMs  float64 `json:"avg_duration_ms"`
+	ErrorCount     int     `json:"error_count"`
+	UniqueModels   int     `json:"unique_models"`
+	UniqueSessions int     `json:"unique_sessions"`
 }
 
-// Score represents an evaluation score.
-type Score struct {
-	ID            string         `json:"id"`
-	ExecutionID   string         `json:"execution_id"`
-	ScoreConfigID string         `json:"score_config_id"`
-	Value         float64        `json:"value"`
-	Comment       string         `json:"comment"`
-	Metadata      map[string]any `json:"metadata,omitempty"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
+// ModelConfig is the version-scoped model + sampling ownership (API v2). Every
+// field is optional; unset sampling inherits the provider/model default.
+type ModelConfig struct {
+	ModelID         string   `json:"model_id,omitempty"`
+	FallbackModelID string   `json:"fallback_model_id,omitempty"`
+	Temperature     *float64 `json:"temperature,omitempty"`
+	TopP            *float64 `json:"top_p,omitempty"`
+	TopK            *int     `json:"top_k,omitempty"`
+	MaxTokens       *int     `json:"max_tokens,omitempty"`
 }
 
-// ScoreConfig represents a score configuration.
-type ScoreConfig struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	WorkspaceID string    `json:"workspace_id"`
-	DataType    string    `json:"data_type"`
-	MinValue    *float64  `json:"min_value,omitempty"`
-	MaxValue    *float64  `json:"max_value,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+// RunBudget bounds the whole execution tree, enforced at the root. Every field
+// is optional.
+type RunBudget struct {
+	MaxCost        *float64 `json:"max_cost,omitempty"`
+	MaxTotalTokens *int     `json:"max_total_tokens,omitempty"`
+	MaxToolCalls   *int     `json:"max_tool_calls,omitempty"`
+	MaxChildren    *int     `json:"max_children,omitempty"`
+	MaxDepth       *int     `json:"max_depth,omitempty"`
 }
 
-// ScoreAggregate holds aggregated score data.
-type ScoreAggregate struct {
-	ConfigID   string  `json:"config_id"`
-	ConfigName string  `json:"config_name"`
-	Count      int     `json:"count"`
-	Average    float64 `json:"average"`
-	Min        float64 `json:"min"`
-	Max        float64 `json:"max"`
+// ApprovalPolicy configures who may approve/deny a parked, approval-gated call.
+type ApprovalPolicy struct {
+	Mode      string   `json:"mode,omitempty"` // "admins" (default) | "assigned" | "any_member"
+	MemberIDs []string `json:"member_ids,omitempty"`
+}
+
+// GuardrailSpec is a guardrail attachment spec — the input shape used to
+// create/attach a guardrail on an agent version. ID is present on responses
+// only; omit it on create.
+type GuardrailSpec struct {
+	ID          string         `json:"id,omitempty"`
+	Type        string         `json:"type"` // "input" | "output"
+	ScannerType string         `json:"scanner_type"`
+	Action      string         `json:"action,omitempty"`
+	Config      map[string]any `json:"config,omitempty"`
+	IsActive    *bool          `json:"is_active,omitempty"`
+	SortOrder   *int           `json:"sort_order,omitempty"`
+}
+
+// ScannerMeta is metadata for an available guardrail scanner
+// (GET /guardrails/scanners).
+type ScannerMeta struct {
+	Type           string   `json:"type"`
+	Label          string   `json:"label"`
+	Description    string   `json:"description"`
+	Category       string   `json:"category"` // "local" | "llm_guard"
+	Enabled        bool     `json:"enabled"`
+	ConfigFields   []string `json:"config_fields,omitempty"`
+	DisabledReason string   `json:"disabled_reason,omitempty"`
 }
 
 // MCPTool represents an MCP tool.
@@ -210,21 +283,6 @@ type MCPTool struct {
 	ToolSchema  map[string]any `json:"tool_schema,omitempty"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
-}
-
-// ApprovalRequest represents a human-in-the-loop approval request.
-type ApprovalRequest struct {
-	ID             string         `json:"id"`
-	ExecutionID    string         `json:"execution_id"`
-	AgentID        string         `json:"agent_id"`
-	WorkspaceID    string         `json:"workspace_id"`
-	CheckpointName string         `json:"checkpoint_name"`
-	Payload        map[string]any `json:"payload,omitempty"`
-	Reason         string         `json:"reason"`
-	Decision       *string        `json:"decision,omitempty"`
-	DecidedBy      *string        `json:"decided_by,omitempty"`
-	DecidedAt      *time.Time     `json:"decided_at,omitempty"`
-	CreatedAt      time.Time      `json:"created_at"`
 }
 
 // AgentTriggerSource identifies the inbound channel that fires the trigger.
@@ -386,20 +444,6 @@ type AvailableModelEntry struct {
 type AvailableModelGroup struct {
 	Provider string                `json:"provider"`
 	Models   []AvailableModelEntry `json:"models"`
-}
-
-// MediaModel represents an available media model.
-type MediaModel struct {
-	ID           string         `json:"id"`
-	Name         string         `json:"name"`
-	Provider     string         `json:"provider"`
-	MediaType    string         `json:"media_type"`
-	IsActive     bool           `json:"is_active"`
-	IsDeprecated bool           `json:"is_deprecated"`
-	DeprecatedAt *time.Time     `json:"deprecated_at"`
-	Config       map[string]any `json:"config,omitempty"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
 // Asset represents a media asset.

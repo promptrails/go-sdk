@@ -15,16 +15,12 @@ type Client struct {
 	DataSources   *DataSourcesService
 	Chat          *ChatService
 	Traces        *TracesService
-	Costs         *CostsService
-	Scores        *ScoresService
 	MCPTools      *MCPToolsService
-	Approvals     *ApprovalsService
+	Guardrails    *GuardrailsService
 	AgentTriggers *AgentTriggersService
 	AgentVFS      *AgentVFSService
 	A2A           *A2AService
-	Media         *MediaService
 	LLMModels     *LLMModelsService
-	MediaModels   *MediaModelsService
 	Assets        *AssetsService
 
 	http *httpClient
@@ -46,16 +42,12 @@ func NewClient(apiKey string, opts ...Option) *Client {
 		DataSources:   &DataSourcesService{http: h},
 		Chat:          &ChatService{http: h},
 		Traces:        &TracesService{http: h},
-		Costs:         &CostsService{http: h},
-		Scores:        &ScoresService{http: h},
 		MCPTools:      &MCPToolsService{http: h},
-		Approvals:     &ApprovalsService{http: h},
+		Guardrails:    &GuardrailsService{http: h},
 		AgentTriggers: &AgentTriggersService{http: h},
 		AgentVFS:      &AgentVFSService{http: h},
 		A2A:           &A2AService{http: h},
-		Media:         &MediaService{http: h},
 		LLMModels:     &LLMModelsService{http: h},
-		MediaModels:   &MediaModelsService{http: h},
 		Assets:        &AssetsService{http: h},
 		http:          h,
 	}

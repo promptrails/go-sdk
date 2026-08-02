@@ -1,7 +1,7 @@
 # API Client
 
 The `promptrails.Client` wraps the PromptRails REST API for managing agents,
-prompts, executions, media, and more.
+prompts, executions, traces, and more.
 
 ```go
 package main
@@ -56,47 +56,60 @@ if err != nil {
 
 | Resource                 | Methods                                                                  |
 | ------------------------ | ------------------------------------------------------------------------ |
-| `client.Agents`          | `List`, `Get`, `Create`, `Update`, `Delete`, `Execute`, `ListVersions`, `CreateVersion`, `PromoteVersion`, `ListGuardrails`, `CreateGuardrail` |
-| `client.Prompts`         | `List`, `Get`, `Create`, `Update`, `Delete`, `ListVersions`, `CreateVersion`, `PromoteVersion`, `Run` |
-| `client.Executions`      | `List`, `Get`                                                            |
+| `client.Agents`          | `List`, `Get`, `Create`, `Update`, `Delete`, `Execute`, `Playground`, `ListVersions`, `CreateVersion`, `PromoteVersion`, `ListGuardrails`, `CreateGuardrail` |
+| `client.Prompts`         | `List`, `Get`, `Create`, `Update`, `Delete`, `ListVersions`, `CreateVersion`, `PromoteVersion` |
+| `client.Executions`      | `List`, `Get`, `Tree`, `Cancel`, `ApprovalInbox`, `Approve`, `Deny`, `Stream` |
 | `client.Credentials`     | `List`, `Get`, `Create`, `Update`, `Delete`, `SetDefault`, `CheckConnection` |
 | `client.DataSources`     | `List`, `Get`, `Create`, `Update`, `Delete`, `ListVersions`, `CreateVersion`, `TestConnection`, `Query` |
 | `client.Chat`            | `ListSessions`, `GetSession`, `CreateSession`, `DeleteSession`, `ListMessages`, `SendMessage` |
-| `client.Traces`          | `List`, `GetByTraceID`                                                   |
-| `client.Costs`           | `GetSummary`, `GetAgentSummary`                                          |
-| `client.Scores`          | `List`, `Get`, `Create`, `Update`, `Delete`, `Aggregates`, `ListConfigs`, `GetConfig`, `CreateConfig`, `UpdateConfig`, `DeleteConfig` |
+| `client.Traces`          | `List`, `GetByTraceID`, `GetSummary`, `PIIReport`, `Ingest`             |
 | `client.MCPTools`        | `List`, `Get`, `Create`, `Update`, `Delete`                              |
-| `client.Approvals`       | `List`, `Get`, `Decide`                                                  |
+| `client.Guardrails`      | `ListScanners`, `Update`, `Delete`                                       |
 | `client.AgentTriggers`   | `List`, `Get`, `Create` (with `Source` + `SourceConfig`), `Update`, `Delete` |
 | `client.AgentVFS`        | `List`, `Read`, `Write`, `Stat`, `Mkdir`, `Move`, `Copy`, `Delete`, `Grep`, `Glob`, `Usage` |
 | `client.A2A`             | `GetAgentCard`, `SendMessage`, `GetTask`, `ListTasks`, `CancelTask`      |
-| `client.Media`           | `Generate`                                                               |
-| `client.MediaModels`     | `List`                                                                   |
+| `client.LLMModels`       | `List`, `ListAvailable`                                                  |
 | `client.Assets`          | `List`, `Get`, `Delete`, `GetSignedURL`                                  |
 
-## Media Studio
+## Agent versions
+
+In API v2 an agent is one of two kinds — `agent` or `workflow` — and the
+**version** owns the model + runtime configuration. Model, sampling, run
+budget, approval policy, cache TTL, VFS/masking overrides and the attached
+tools / sub-agents / guardrails are all passed to `CreateVersion` as siblings
+of `Config` (a prompt carries no model configuration):
 
 ```go
-// List available media models
-models, err := client.MediaModels.List(ctx, &promptrails.ListMediaModelsParams{
-    Provider:  "fal",
-    MediaType: "image",
+temp := 0.2
+maxCost := 1.0
+_, err := client.Agents.CreateVersion(ctx, "agent-id", &promptrails.CreateVersionParams{
+    Version:    "1.0.0",
+    SetCurrent: true,
+    Config:     promptrails.PromptAgentConfig{PromptID: "prompt-id"},
+    ModelConfig: &promptrails.ModelConfig{
+        ModelID:     "llm-model-id",
+        Temperature: &temp,
+    },
+    RunBudget:  &promptrails.RunBudget{MaxCost: &maxCost},
+    Tools:      []promptrails.ToolAttachment{{MCPToolID: "tool-id", RequiresApproval: true}},
+    SubAgents:  []promptrails.SubAgentAttachment{{AgentID: "sub-id", Alias: "researcher"}},
+    Guardrails: []promptrails.GuardrailSpec{{Type: "input", ScannerType: "pii"}},
 })
+```
 
-// Generate an image
-resp, err := client.Media.Generate(ctx, &promptrails.GenerateMediaParams{
-    Provider:  "fal",
-    MediaType: "image",
-    Model:     "fal-ai/flux/schnell",
-    Prompt:    "A sunset over mountains",
-    Config:    map[string]any{"width": 1024, "height": 768},
-})
-fmt.Println(resp.AssetURL)
+## Approvals & execution trees
 
-// Browse and manage assets
-assets, err := client.Assets.List(ctx, &promptrails.ListAssetsParams{MediaType: "image"})
-signed, err := client.Assets.GetSignedURL(ctx, "asset-id")
-err = client.Assets.Delete(ctx, "asset-id")
+Approval-gated tool calls park an execution at `waiting_approval`. Reach them
+through the execution-scoped inbox and resume them in place:
+
+```go
+inbox, err := client.Executions.ApprovalInbox(ctx, nil)
+_, err = client.Executions.Approve(ctx, "execution-id", &promptrails.DecideParams{Reason: "looks good"})
+_, err = client.Executions.Deny(ctx, "execution-id", nil)
+
+// Inspect the full sub-agent / workflow tree, or cancel a running root.
+tree, err := client.Executions.Tree(ctx, "execution-id")
+_, err = client.Executions.Cancel(ctx, "execution-id")
 ```
 
 ## Configuration

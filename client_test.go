@@ -28,17 +28,11 @@ func TestNewClient(t *testing.T) {
 	if c.Traces == nil {
 		t.Error("Traces service should not be nil")
 	}
-	if c.Costs == nil {
-		t.Error("Costs service should not be nil")
-	}
-	if c.Scores == nil {
-		t.Error("Scores service should not be nil")
-	}
 	if c.MCPTools == nil {
 		t.Error("MCPTools service should not be nil")
 	}
-	if c.Approvals == nil {
-		t.Error("Approvals service should not be nil")
+	if c.Guardrails == nil {
+		t.Error("Guardrails service should not be nil")
 	}
 	if c.AgentTriggers == nil {
 		t.Error("AgentTriggers service should not be nil")

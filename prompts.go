@@ -35,44 +35,18 @@ type UpdatePromptParams struct {
 	Config       map[string]any `json:"config,omitempty"`
 }
 
-// Reasoning effort levels accepted by RunPromptParams.ReasoningEffort. They
-// mirror langrails' provider-agnostic ReasoningEffort and only take effect on
-// models whose SupportsReasoning capability is set.
-const (
-	ReasoningEffortMinimal = "minimal"
-	ReasoningEffortLow     = "low"
-	ReasoningEffortMedium  = "medium"
-	ReasoningEffortHigh    = "high"
-)
-
-// RunMessage is a role/content message seeded into a prompt run.
-type RunMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-// RunPromptParams are parameters for running a prompt. All fields except
-// UserPrompt are optional; omitted fields fall back to the prompt version's
-// saved configuration.
-type RunPromptParams struct {
-	SystemPrompt       string         `json:"system_prompt,omitempty"`
-	UserPrompt         string         `json:"user_prompt"`
-	LLMModelID         string         `json:"llm_model_id,omitempty"`
-	FallbackLLMModelID string         `json:"fallback_llm_model_id,omitempty"`
-	Temperature        *float64       `json:"temperature,omitempty"`
-	MaxTokens          *int           `json:"max_tokens,omitempty"`
-	TopP               *float64       `json:"top_p,omitempty"`
-	TopK               *int           `json:"top_k,omitempty"`
-	Input              map[string]any `json:"input,omitempty"`
-	OutputSchema       map[string]any `json:"output_schema,omitempty"`
-	Tools              []string       `json:"tools,omitempty"`
-	InitialMessages    []RunMessage   `json:"initial_messages,omitempty"`
-	CredentialID       string         `json:"credential_id,omitempty"`
-	CacheTimeout       int            `json:"cache_timeout,omitempty"`
-	// Feature toggles, gated by the model's capability flags.
-	ReasoningEffort string `json:"reasoning_effort,omitempty"`
-	WebSearch       *bool  `json:"web_search,omitempty"`
-	PromptCaching   *bool  `json:"prompt_caching,omitempty"`
+// CreatePromptVersionParams are parameters for creating a content-only prompt
+// version. Model, sampling, tools, output schema and cache TTL live on the
+// agent version (see AgentsService.CreateVersion), not on the prompt — a
+// prompt carries no model configuration.
+type CreatePromptVersionParams struct {
+	Version      string         `json:"version,omitempty"`
+	UserPrompt   string         `json:"user_prompt"`
+	SystemPrompt string         `json:"system_prompt,omitempty"`
+	InputSchema  map[string]any `json:"input_schema,omitempty"`
+	Config       map[string]any `json:"config,omitempty"`
+	SetCurrent   bool           `json:"set_current,omitempty"`
+	Message      string         `json:"message,omitempty"`
 }
 
 // List returns a paginated list of prompts.
@@ -135,8 +109,8 @@ func (s *PromptsService) ListVersions(ctx context.Context, id string, params *Li
 	return &result, err
 }
 
-// CreateVersion creates a new version for a prompt.
-func (s *PromptsService) CreateVersion(ctx context.Context, id string, params *CreateVersionParams) (*PromptVersion, error) {
+// CreateVersion creates a new content-only version for a prompt.
+func (s *PromptsService) CreateVersion(ctx context.Context, id string, params *CreatePromptVersionParams) (*PromptVersion, error) {
 	var result PromptVersion
 	err := s.http.post(ctx, "/api/v1/prompts/"+id+"/versions", params, &result)
 	return &result, err
@@ -145,11 +119,4 @@ func (s *PromptsService) CreateVersion(ctx context.Context, id string, params *C
 // PromoteVersion sets a version as the active version.
 func (s *PromptsService) PromoteVersion(ctx context.Context, id, versionID string) error {
 	return s.http.post(ctx, "/api/v1/prompts/"+id+"/versions/"+versionID+"/promote", nil, nil)
-}
-
-// Run executes a prompt with the given parameters.
-func (s *PromptsService) Run(ctx context.Context, id string, params *RunPromptParams) (*RunPromptResponse, error) {
-	var result RunPromptResponse
-	err := s.http.post(ctx, "/api/v1/prompts/"+id+"/run", params, &result)
-	return &result, err
 }

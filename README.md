@@ -46,7 +46,7 @@ func main() {
 ```
 
 See the [API client guide](docs/api-client.md) for resources, error handling,
-media studio, and configuration.
+agent versions, approvals, and configuration.
 
 ### Tracing
 
@@ -70,7 +70,7 @@ configuration, and the OpenTelemetry bridge.
 
 ## Documentation
 
-- [API client](docs/api-client.md) — resources, error handling, media studio, configuration
+- [API client](docs/api-client.md) — resources, error handling, agent versions, approvals, configuration
 - [Tracing](docs/tracing.md) — spans, batching, configuration, OpenTelemetry
 
 ## Contributing

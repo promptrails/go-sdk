@@ -51,6 +51,60 @@ func (s *ExecutionsService) Get(ctx context.Context, id string) (*Execution, err
 	return &result, err
 }
 
+// DecideParams are parameters for approving or denying a parked execution.
+type DecideParams struct {
+	Reason string `json:"reason,omitempty"`
+}
+
+// Tree fetches the execution with its full Children tree populated.
+func (s *ExecutionsService) Tree(ctx context.Context, id string) (*Execution, error) {
+	var result Execution
+	err := s.http.get(ctx, "/api/v1/executions/"+id+"/tree", nil, &result)
+	return &result, err
+}
+
+// Cancel requests cooperative cancellation of a running execution.
+func (s *ExecutionsService) Cancel(ctx context.Context, id string) (*Execution, error) {
+	var result Execution
+	err := s.http.post(ctx, "/api/v1/executions/"+id+"/cancel", map[string]any{}, &result)
+	return &result, err
+}
+
+// ApprovalInbox lists executions parked at "waiting_approval".
+func (s *ExecutionsService) ApprovalInbox(ctx context.Context, params *ListParams) (*PaginatedResponse[Execution], error) {
+	if params == nil {
+		params = &ListParams{}
+	}
+	params.defaults()
+	qp := map[string]string{
+		"page":  fmt.Sprintf("%d", params.Page),
+		"limit": fmt.Sprintf("%d", params.Limit),
+	}
+	var result PaginatedResponse[Execution]
+	err := s.http.get(ctx, "/api/v1/executions/approval-inbox", qp, &result)
+	return &result, err
+}
+
+// Approve approves a run parked at "waiting_approval" and resumes it.
+func (s *ExecutionsService) Approve(ctx context.Context, id string, params *DecideParams) (*Execution, error) {
+	if params == nil {
+		params = &DecideParams{}
+	}
+	var result Execution
+	err := s.http.post(ctx, "/api/v1/executions/"+id+"/approve", params, &result)
+	return &result, err
+}
+
+// Deny denies a run parked at "waiting_approval" and resumes with a denial.
+func (s *ExecutionsService) Deny(ctx context.Context, id string, params *DecideParams) (*Execution, error) {
+	if params == nil {
+		params = &DecideParams{}
+	}
+	var result Execution
+	err := s.http.post(ctx, "/api/v1/executions/"+id+"/deny", params, &result)
+	return &result, err
+}
+
 // Stream subscribes to the live SSE event stream for an execution. Useful
 // when the execution was started outside a chat (e.g. Agents.Execute) and
 // the caller wants progressive updates. Always Close() the returned stream.

@@ -124,47 +124,6 @@ func TestAssets(t *testing.T) {
 	})
 }
 
-// ---------- Costs ----------
-
-func TestCosts(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("GetSummary", func(t *testing.T) {
-		srv, c := testServer(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/api/v1/costs/summary" {
-				t.Errorf("path=%s", r.URL.Path)
-			}
-			if r.URL.Query().Get("from") != "2025-01-01" {
-				t.Errorf("from filter not propagated: %q", r.URL.Query().Get("from"))
-			}
-			_, _ = io.WriteString(w, `{"data":{"total_cost":12.5,"total_tokens":100}}`)
-		})
-		defer srv.Close()
-		s, err := c.Costs.GetSummary(ctx, &CostParams{From: "2025-01-01"})
-		if err != nil || s.TotalCost != 12.5 {
-			t.Fatalf("s=%+v err=%v", s, err)
-		}
-	})
-
-	t.Run("GetAgentSummary", func(t *testing.T) {
-		srv, c := testServer(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/api/v1/costs/agents/ag1/summary" {
-				t.Errorf("path=%s", r.URL.Path)
-			}
-			q := r.URL.Query()
-			if q.Get("from") != "2025-01-01" || q.Get("to") != "2025-02-01" {
-				t.Errorf("date range not propagated: %v", q)
-			}
-			_, _ = io.WriteString(w, `{"data":{"total_cost":3.0}}`)
-		})
-		defer srv.Close()
-		s, err := c.Costs.GetAgentSummary(ctx, "ag1", &CostParams{From: "2025-01-01", To: "2025-02-01"})
-		if err != nil || s.TotalCost != 3.0 {
-			t.Fatalf("s=%+v err=%v", s, err)
-		}
-	})
-}
-
 // ---------- Credentials ----------
 
 func TestCredentials(t *testing.T) {
@@ -259,108 +218,39 @@ func TestTraces(t *testing.T) {
 			t.Fatalf("traces=%+v err=%v", traces, err)
 		}
 	})
-}
 
-// ---------- Scores ----------
-
-func TestScores(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("List", func(t *testing.T) {
+	t.Run("GetSummary", func(t *testing.T) {
 		srv, c := testServer(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Query().Get("execution_id") != "e1" {
-				t.Errorf("execution_id filter not propagated")
+			if r.URL.Path != "/api/v1/traces/summary" {
+				t.Errorf("path=%s", r.URL.Path)
 			}
-			_, _ = io.WriteString(w, listEnvelope)
+			if r.URL.Query().Get("model_name") != "gpt-4o" {
+				t.Errorf("model_name filter not propagated: %q", r.URL.Query().Get("model_name"))
+			}
+			_, _ = io.WriteString(w, `{"data":{"total_traces":5,"total_cost":1.5}}`)
 		})
 		defer srv.Close()
-		res, err := c.Scores.List(ctx, &ListScoresParams{ExecutionID: "e1"})
-		if err != nil || res.Meta.Total != 1 {
-			t.Fatalf("res=%+v err=%v", res, err)
-		}
-	})
-
-	t.Run("Get", func(t *testing.T) {
-		srv, c := testServer(jsonHandler(t, "GET", "/api/v1/scores/s1", `{"data":{"id":"s1","value":0.9}}`))
-		defer srv.Close()
-		s, err := c.Scores.Get(ctx, "s1")
-		if err != nil || s.Value != 0.9 {
+		s, err := c.Traces.GetSummary(ctx, &TraceFilterParams{ModelName: "gpt-4o"})
+		if err != nil || s.TotalTraces != 5 || s.TotalCost != 1.5 {
 			t.Fatalf("s=%+v err=%v", s, err)
 		}
 	})
 
-	t.Run("Create", func(t *testing.T) {
-		srv, c := testServer(jsonHandler(t, "POST", "/api/v1/scores", `{"data":{"id":"s1","value":1}}`))
+	t.Run("PIIReport", func(t *testing.T) {
+		srv, c := testServer(jsonHandler(t, "GET", "/api/v1/traces/pii-report", `{"data":{"masked":3}}`))
 		defer srv.Close()
-		if _, err := c.Scores.Create(ctx, &CreateScoreParams{ExecutionID: "e1", Value: 1}); err != nil {
-			t.Fatalf("err=%v", err)
+		rep, err := c.Traces.PIIReport(ctx, nil)
+		if err != nil || rep["masked"].(float64) != 3 {
+			t.Fatalf("rep=%+v err=%v", rep, err)
 		}
 	})
 
-	t.Run("Update", func(t *testing.T) {
-		srv, c := testServer(jsonHandler(t, "PATCH", "/api/v1/scores/s1", `{"data":{"id":"s1"}}`))
+	t.Run("Ingest", func(t *testing.T) {
+		srv, c := testServer(jsonHandler(t, "POST", "/api/v1/traces/ingest", `{"data":{"ingested":2}}`))
 		defer srv.Close()
-		v := 0.5
-		if _, err := c.Scores.Update(ctx, "s1", &UpdateScoreParams{Value: &v}); err != nil {
-			t.Fatalf("err=%v", err)
-		}
-	})
-
-	t.Run("Delete", func(t *testing.T) {
-		srv, c := testServer(jsonHandler(t, "DELETE", "/api/v1/scores/s1", ""))
-		defer srv.Close()
-		if err := c.Scores.Delete(ctx, "s1"); err != nil {
-			t.Fatalf("err=%v", err)
-		}
-	})
-
-	t.Run("Aggregates", func(t *testing.T) {
-		srv, c := testServer(jsonHandler(t, "GET", "/api/v1/scores/aggregates", `{"data":[{"config_id":"cfg1","count":3,"average":0.8}]}`))
-		defer srv.Close()
-		aggs, err := c.Scores.Aggregates(ctx, nil)
-		if err != nil || len(aggs) != 1 || aggs[0].ConfigID != "cfg1" {
-			t.Fatalf("aggs=%+v err=%v", aggs, err)
-		}
-	})
-
-	t.Run("ListConfigs", func(t *testing.T) {
-		srv, c := testServer(jsonHandler(t, "GET", "/api/v1/scores/configs", listEnvelope))
-		defer srv.Close()
-		if _, err := c.Scores.ListConfigs(ctx, nil); err != nil {
-			t.Fatalf("err=%v", err)
-		}
-	})
-
-	t.Run("GetConfig", func(t *testing.T) {
-		srv, c := testServer(jsonHandler(t, "GET", "/api/v1/scores/configs/cfg1", `{"data":{"id":"cfg1"}}`))
-		defer srv.Close()
-		if _, err := c.Scores.GetConfig(ctx, "cfg1"); err != nil {
-			t.Fatalf("err=%v", err)
-		}
-	})
-
-	t.Run("CreateConfig", func(t *testing.T) {
-		srv, c := testServer(jsonHandler(t, "POST", "/api/v1/scores/configs", `{"data":{"id":"cfg1"}}`))
-		defer srv.Close()
-		if _, err := c.Scores.CreateConfig(ctx, &CreateScoreConfigParams{Name: "acc", DataType: "numeric"}); err != nil {
-			t.Fatalf("err=%v", err)
-		}
-	})
-
-	t.Run("UpdateConfig", func(t *testing.T) {
-		srv, c := testServer(jsonHandler(t, "PATCH", "/api/v1/scores/configs/cfg1", `{"data":{"id":"cfg1"}}`))
-		defer srv.Close()
-		name := "renamed"
-		if _, err := c.Scores.UpdateConfig(ctx, "cfg1", &UpdateScoreConfigParams{Name: &name}); err != nil {
-			t.Fatalf("err=%v", err)
-		}
-	})
-
-	t.Run("DeleteConfig", func(t *testing.T) {
-		srv, c := testServer(jsonHandler(t, "DELETE", "/api/v1/scores/configs/cfg1", ""))
-		defer srv.Close()
-		if err := c.Scores.DeleteConfig(ctx, "cfg1"); err != nil {
-			t.Fatalf("err=%v", err)
+		res, err := c.Traces.Ingest(ctx, []map[string]any{{"name": "s1"}, {"name": "s2"}})
+		if err != nil || res["ingested"].(float64) != 2 {
+			t.Fatalf("res=%+v err=%v", res, err)
 		}
 	})
 }
