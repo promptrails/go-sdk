@@ -2,6 +2,8 @@ package promptrails
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"testing"
 )
 
@@ -50,6 +52,34 @@ func TestChat(t *testing.T) {
 		defer srv.Close()
 		if _, err := c.Chat.SendMessage(ctx, "s1", &SendMessageParams{Content: "hi"}); err != nil {
 			t.Fatalf("err=%v", err)
+		}
+	})
+	t.Run("SubmitFeedback", func(t *testing.T) {
+		srv, c := testServer(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost || r.URL.Path != "/api/v1/chat/sessions/s1/feedback" {
+				t.Fatalf("got %s %s", r.Method, r.URL.Path)
+			}
+			var payload SubmitFeedbackParams
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatalf("decode body: %v", err)
+			}
+			if payload.ExecutionID != "exec1" || payload.Value != -1 {
+				t.Fatalf("unexpected payload: %#v", payload)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"data":{"submitted":true}}`))
+		})
+		defer srv.Close()
+
+		result, err := c.Chat.SubmitFeedback(ctx, "s1", &SubmitFeedbackParams{
+			ExecutionID: "exec1",
+			Value:       -1,
+		})
+		if err != nil {
+			t.Fatalf("err=%v", err)
+		}
+		if !result.Submitted {
+			t.Fatal("expected submitted response")
 		}
 	})
 }

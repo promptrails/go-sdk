@@ -21,6 +21,17 @@ type SendMessageParams struct {
 	Content string `json:"content"`
 }
 
+// SubmitFeedbackParams are parameters for thumbs-up/down chat feedback.
+type SubmitFeedbackParams struct {
+	ExecutionID string `json:"execution_id"`
+	Value       int    `json:"value"`
+}
+
+// ChatFeedbackResponse confirms that feedback was created or updated.
+type ChatFeedbackResponse struct {
+	Submitted bool `json:"submitted"`
+}
+
 // ListSessions returns a paginated list of chat sessions.
 func (s *ChatService) ListSessions(ctx context.Context, params *ListParams) (*PaginatedResponse[ChatSession], error) {
 	if params == nil {
@@ -74,6 +85,14 @@ func (s *ChatService) ListMessages(ctx context.Context, sessionID string, params
 func (s *ChatService) SendMessage(ctx context.Context, sessionID string, params *SendMessageParams) (*ChatMessage, error) {
 	var result ChatMessage
 	err := s.http.post(ctx, "/api/v1/chat/sessions/"+sessionID+"/messages", params, &result)
+	return &result, err
+}
+
+// SubmitFeedback submits or updates feedback for an execution in a chat session.
+// Value must be 1 for thumbs-up or -1 for thumbs-down.
+func (s *ChatService) SubmitFeedback(ctx context.Context, sessionID string, params *SubmitFeedbackParams) (*ChatFeedbackResponse, error) {
+	var result ChatFeedbackResponse
+	err := s.http.post(ctx, "/api/v1/chat/sessions/"+sessionID+"/feedback", params, &result)
 	return &result, err
 }
 

@@ -61,7 +61,7 @@ if err != nil {
 | `client.Executions`      | `List`, `Get`, `Tree`, `Cancel`, `ApprovalInbox`, `Approve`, `Deny`, `Stream` |
 | `client.Credentials`     | `List`, `Get`, `Create`, `Update`, `Delete`, `SetDefault`, `CheckConnection` |
 | `client.DataSources`     | `List`, `Get`, `Create`, `Update`, `Delete`, `ListVersions`, `CreateVersion`, `TestConnection`, `Query` |
-| `client.Chat`            | `ListSessions`, `GetSession`, `CreateSession`, `DeleteSession`, `ListMessages`, `SendMessage` |
+| `client.Chat`            | `ListSessions`, `GetSession`, `CreateSession`, `DeleteSession`, `ListMessages`, `SendMessage`, `SendMessageStream`, `SubmitFeedback` |
 | `client.Traces`          | `List`, `GetByTraceID`, `GetSummary`, `PIIReport`, `Ingest`             |
 | `client.MCPTools`        | `List`, `Get`, `Create`, `Update`, `Delete`                              |
 | `client.Guardrails`      | `ListScanners`, `Update`, `Delete`                                       |
@@ -70,6 +70,11 @@ if err != nil {
 | `client.A2A`             | `GetAgentCard`, `SendMessage`, `GetTask`, `ListTasks`, `CancelTask`      |
 | `client.LLMModels`       | `List`, `ListAvailable`                                                  |
 | `client.Assets`          | `List`, `Get`, `Delete`, `GetSignedURL`                                  |
+
+The browser-only `/api/v1/browser/chat/*` token and resume protocol is exposed
+by [`@promptrails/ai-chat`](https://github.com/promptrails/ai-chat), which is
+designed for publishable origin-restricted keys. This server-key SDK does not
+send long-lived PromptRails credentials to browser applications.
 
 ## Agent versions
 
